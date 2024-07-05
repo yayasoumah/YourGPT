@@ -19,9 +19,11 @@ RUN apt-get update && apt-get install -y \
 # Install Ollama
 RUN curl -fsSL https://ollama.ai/install.sh | sh
 
-# Install Python dependencies
+# Copy requirements file
 COPY requirements.txt /requirements.txt
-RUN pip3 install -r /requirements.txt
+
+# Install Python dependencies
+RUN pip3 install --no-cache-dir -r /requirements.txt
 
 # Copy the startup script and API server
 COPY start.sh /start.sh
