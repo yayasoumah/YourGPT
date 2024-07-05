@@ -1,18 +1,17 @@
-
 #!/bin/bash
 
 echo "$(date): Starting Ollama setup..."
 
-# Start Ollama server
+# Start Ollama server and capture its output
 echo "$(date): Starting Ollama server..."
-ollama serve &
+ollama serve > ollama.log 2>&1 &
 
 # Wait for Ollama server to start and capture the port
 echo "$(date): Waiting for Ollama server to start..."
 OLLAMA_PORT=""
 while [ -z "$OLLAMA_PORT" ]; do
     sleep 1
-    OLLAMA_PORT=$(grep -oP 'port="\K[0-9]+' /var/log/ollama.log | tail -1)
+    OLLAMA_PORT=$(grep -oP 'port="\K[0-9]+' ollama.log | tail -1)
 done
 
 echo "$(date): Ollama server is running on port $OLLAMA_PORT."
