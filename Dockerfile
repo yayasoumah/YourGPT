@@ -28,10 +28,13 @@ RUN python3 -m pip install --upgrade pip && \
 # Copy the startup script and API server
 COPY start.sh /start.sh
 COPY api_server.py /api_server.py
-RUN chmod +x /start.sh
+
+# Ensure start.sh has the correct permissions and line endings
+RUN chmod +x /start.sh && \
+    sed -i 's/\r$//' /start.sh
 
 # Expose Ollama port and API port
 EXPOSE 11434 8080
 
 # Start the Ollama server and API server
-CMD ["/start.sh"]
+CMD ["/bin/bash", "/start.sh"]
