@@ -1,10 +1,12 @@
+import os
 from flask import Flask, request, jsonify
 import requests
 import json
 
 app = Flask(__name__)
 
-OLLAMA_API_BASE = "http://localhost:11434/api"
+OLLAMA_PORT = os.environ.get('OLLAMA_PORT', '11434')
+OLLAMA_API_BASE = f"http://localhost:{OLLAMA_PORT}/api"
 
 @app.route('/generate', methods=['POST'])
 def generate():

@@ -1,3 +1,4 @@
+
 #!/bin/bash
 
 echo "$(date): Starting Ollama setup..."
@@ -6,13 +7,18 @@ echo "$(date): Starting Ollama setup..."
 echo "$(date): Starting Ollama server..."
 ollama serve &
 
-# Wait for Ollama server to start
+# Wait for Ollama server to start and capture the port
 echo "$(date): Waiting for Ollama server to start..."
-until curl -s http://localhost:11434/api/tags >/dev/null; do
+OLLAMA_PORT=""
+while [ -z "$OLLAMA_PORT" ]; do
     sleep 1
+    OLLAMA_PORT=$(grep -oP 'port="\K[0-9]+' /var/log/ollama.log | tail -1)
 done
 
-echo "$(date): Ollama server is running."
+echo "$(date): Ollama server is running on port $OLLAMA_PORT."
+
+# Export the OLLAMA_PORT for the Python script to use
+export OLLAMA_PORT
 
 # Function to pull the model with retries
 pull_model() {
