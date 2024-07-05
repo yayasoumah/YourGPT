@@ -1,20 +1,33 @@
-# Dockerfile
-FROM python:3.9
+# Use an official Python runtime as a parent image
+FROM python:3.9-slim
 
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONUNBUFFERED 1
+
+# Set work directory
 WORKDIR /app
 
-# Install required packages
-RUN apt-get update && apt-get install -y curl
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install Ollama
 RUN curl -fsSL https://ollama.ai/install.sh | sh
 
-# Copy requirements and install Python dependencies
-COPY requirements.txt .
-RUN pip install -r requirements.txt
+# Copy the current directory contents into the container at /app
+COPY . /app
 
-# Copy the rest of the application
-COPY . .
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Start Ollama service and run the FastAPI app
-CMD ["sh", "-c", "ollama serve & uvicorn main:app --host 0.0.0.0 --port 8000"
+# Make port 8000 available to the world outside this container
+EXPOSE 8000
+
+# Create a startup script
+RUN echo '#!/bin/bash\nollama serve &\nuvicorn main:app --host 0.0.0.0 --port 8000' > /app/start.sh \
+    && chmod +x /app/start.sh
+
+# Run the startup script when the container launches
+CMD ["/app/start.sh"]
