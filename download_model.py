@@ -7,13 +7,19 @@ def download_model():
     
     print(f"Downloading {filename} from {model_name}...")
     
-    model_path = hf_hub_download(repo_id=model_name, filename=filename)
+    # Use a persistent directory that Railway will maintain across deployments
+    model_dir = "/railway/models"
+    os.makedirs(model_dir, exist_ok=True)
     
-    os.makedirs("/app/models", exist_ok=True)
-    final_path = "/app/models/llama-2-7b-chat.gguf"
-    os.rename(model_path, final_path)
+    final_path = os.path.join(model_dir, "llama-2-7b-chat.gguf")
     
-    print(f"Model downloaded and saved to {final_path}")
+    if not os.path.exists(final_path):
+        model_path = hf_hub_download(repo_id=model_name, filename=filename)
+        os.rename(model_path, final_path)
+        print(f"Model downloaded and saved to {final_path}")
+    else:
+        print(f"Model already exists at {final_path}")
+    
     return final_path
 
 if __name__ == "__main__":
