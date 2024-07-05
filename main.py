@@ -1,7 +1,7 @@
 import asyncio
 import httpx
 import logging
-import psutil
+import os
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -21,18 +21,15 @@ class GenerateResponse(BaseModel):
 # Global variable to track if the model is ready
 model_ready = False
 
-def check_memory():
-    memory = psutil.virtual_memory()
-    logger.info(f"Available memory: {memory.available / (1024 * 1024 * 1024):.2f} GB")
-    if memory.available < 1 * 1024 * 1024 * 1024:  # Less than 1GB available
-        logger.warning("Low memory condition detected")
+# Use environment variable for Ollama URL, default to localhost if not set
+OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
 
 async def ensure_ollama_ready():
     max_retries = 30
     for i in range(max_retries):
         try:
             async with httpx.AsyncClient() as client:
-                response = await client.get("http://localhost:11434/api/tags")
+                response = await client.get(f"{OLLAMA_URL}/api/tags")
                 if response.status_code == 200:
                     logger.info("Ollama is ready")
                     return
@@ -47,7 +44,7 @@ async def load_model():
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                "http://localhost:11434/api/generate",
+                f"{OLLAMA_URL}/api/generate",
                 json={
                     "model": "llama3",
                     "prompt": "Warm-up request"
@@ -64,7 +61,6 @@ async def load_model():
 async def startup_event():
     logger.info("Starting up YourGPT")
     try:
-        check_memory()
         await ensure_ollama_ready()
         await load_model()
         logger.info("YourGPT startup complete")
@@ -78,34 +74,42 @@ async def generate(request: GenerateRequest):
         raise HTTPException(status_code=503, detail="Model is not ready yet. Please try again later.")
     try:
         async with httpx.AsyncClient() as client:
+            logger.info(f"Sending request to Ollama with prompt: {request.prompt[:50]}...")
             response = await client.post(
-                "http://localhost:11434/api/generate",
+                f"{OLLAMA_URL}/api/generate",
                 json={
                     "model": "llama3",
                     "prompt": request.prompt
                 },
                 timeout=120.0  # 2 minutes timeout for generation
             )
+            logger.info(f"Received response from Ollama with status code: {response.status_code}")
             response.raise_for_status()
             data = response.json()
+            logger.info("Successfully generated response")
             return GenerateResponse(response=data["response"])
     except httpx.HTTPStatusError as e:
         logger.error(f"HTTP error occurred: {e}")
-        raise HTTPException(status_code=500, detail="Error generating response from YourGPT")
+        if e.response.status_code == 404:
+            raise HTTPException(status_code=500, detail="Ollama API endpoint not found. Please check if Ollama is running correctly.")
+        else:
+            raise HTTPException(status_code=500, detail=f"Error generating response from YourGPT: {str(e)}")
+    except httpx.RequestError as e:
+        logger.error(f"Request error occurred: {e}")
+        raise HTTPException(status_code=500, detail=f"Error connecting to Ollama: {str(e)}")
     except Exception as e:
         logger.error(f"An unexpected error occurred: {str(e)}")
-        raise HTTPException(status_code=500, detail="An unexpected error occurred")
+        raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
 
 @app.get("/health")
 async def health_check():
-    check_memory()
-    if not model_ready:
-        return {"status": "starting", "message": "Model is still loading"}
     try:
         async with httpx.AsyncClient() as client:
-            response = await client.get("http://localhost:11434/api/tags")
-            if response.status_code == 200:
-                return {"status": "healthy"}
+            response = await client.get(f"{OLLAMA_URL}/api/tags")
+            if response.status_code == 200 and model_ready:
+                return {"status": "healthy", "message": "Ollama is responding and model is loaded"}
+            elif response.status_code == 200:
+                return {"status": "partially healthy", "message": "Ollama is responding but model is not yet loaded"}
             else:
                 return {"status": "unhealthy", "message": "Ollama is not responding correctly"}
     except Exception as e:
