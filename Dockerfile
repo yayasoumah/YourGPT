@@ -11,15 +11,14 @@ RUN apt-get update && apt-get install -y \
     python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements file
+# Download Llamafile executable and model weights
+RUN curl -L -o /llamafile https://github.com/Mozilla-Ocho/llamafile/releases/download/0.6/llamafile-0.6 && \
+    chmod +x /llamafile && \
+    curl -L -o /mistral.gguf https://huggingface.co/TheBloke/Mistral-7B-Instruct-v0.1-GGUF/resolve/main/mistral-7b-instruct-v0.1.Q4_K_M.gguf
+
+# Copy requirements file and install Python dependencies
 COPY requirements.txt /requirements.txt
-
-# Install Python dependencies
 RUN pip3 install --no-cache-dir -r /requirements.txt
-
-# Download Mistral Llamafile
-RUN curl -L -o /mistral-7b-instruct-v0.2.Q4_0.llamafile https://huggingface.co/jartine/mistral-7b-instruct-v0.2.Q4_0.llamafile/resolve/main/mistral-7b-instruct-v0.2.Q4_0.llamafile && \
-    chmod +x /mistral-7b-instruct-v0.2.Q4_0.llamafile
 
 # Copy the API server
 COPY api_server.py /api_server.py
@@ -27,5 +26,5 @@ COPY api_server.py /api_server.py
 # Expose API port
 EXPOSE 8080
 
-# Start the API server
-CMD ["python3", "api_server.py"]
+# Start the API server using Gunicorn
+CMD ["gunicorn", "--bind", "0.0.0.0:8080", "api_server:app"]
