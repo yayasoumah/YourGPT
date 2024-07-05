@@ -17,7 +17,8 @@ RUN apt-get update && apt-get install -y \
 # Clone and build llama.cpp
 RUN git clone https://github.com/ggerganov/llama.cpp.git && \
     cd llama.cpp && \
-    make
+    make && \
+    cp main /usr/local/bin/llama
 
 # Copy requirements file and install Python dependencies
 COPY requirements.txt /app/requirements.txt
@@ -25,10 +26,6 @@ RUN pip3 install --no-cache-dir -r /app/requirements.txt
 
 # Copy the application files
 COPY api_server.py download_model.py run_model.py start.sh /app/
-
-# Create .env file
-RUN echo "MODEL_PATH=/app/models/llama-2-7b-chat.gguf" > /app/.env && \
-    echo "PORT=8080" >> /app/.env
 
 # Set the working directory
 WORKDIR /app
