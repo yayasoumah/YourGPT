@@ -9,16 +9,20 @@ RUN apt-get update && apt-get install -y \
     python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
-# Download Llamafile executable
-RUN curl -L -o /app/mistral-7b-instruct-v0.2.Q4_0.llamafile https://huggingface.co/jartine/mistral-7b-instruct-v0.2.Q4_0.llamafile/resolve/main/mistral-7b-instruct-v0.2.Q4_0.llamafile && \
-    chmod +x /app/mistral-7b-instruct-v0.2.Q4_0.llamafile
-
 WORKDIR /app
 
-COPY requirements.txt /app/requirements.txt
-RUN pip3 install --no-cache-dir -r /app/requirements.txt
+# Download Llamafile executable
+RUN curl -L -o llamafile https://github.com/Mozilla-Ocho/llamafile/releases/download/0.6/llamafile-0.6 && \
+    chmod +x llamafile
 
-COPY api_server.py /app/api_server.py
+# Download the model file
+RUN wget -O Llama-3-Instruct-8B-SPPO-Iter3-Q4_K_M.gguf \
+    https://huggingface.co/NumerDox/Llama-3-Instruct-8B-SPPO-Iter3/resolve/main/Llama-3-Instruct-8B-SPPO-Iter3-Q4_K_M.gguf
+
+COPY requirements.txt .
+RUN pip3 install --no-cache-dir -r requirements.txt
+
+COPY api_server.py .
 
 EXPOSE 8080
 

@@ -11,24 +11,19 @@ load_dotenv()
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
 
-LLAMAFILE_PATH = os.getenv('LLAMAFILE_PATH', '/app/mistral-7b-instruct-v0.2.Q4_0.llamafile')
+LLAMAFILE_PATH = os.getenv('LLAMAFILE_PATH', './llamafile')
+MODEL_PATH = os.getenv('MODEL_PATH', './Llama-3-Instruct-8B-SPPO-Iter3-Q4_K_M.gguf')
 MODEL_STATUS = "NOT_STARTED"
 MODEL_PROCESS = None
 
 def log_stage(stage):
     logging.info(f"DEPLOYMENT STAGE: {stage}")
 
-def download_model():
-    log_stage("Downloading Mistral-7B-Instruct model")
-    download_url = "https://huggingface.co/TheBloke/Mistral-7B-Instruct-v0.2-GGUF/resolve/main/mistral-7b-instruct-v0.2.Q4_0.gguf"
-    subprocess.run(["wget", "-O", "/app/mistral-7b-instruct-v0.2.Q4_0.gguf", download_url], check=True)
-    log_stage("Model download completed")
-
 def start_model_server():
     global MODEL_STATUS, MODEL_PROCESS
     MODEL_STATUS = "LOADING"
-    log_stage("Starting Mistral model server")
-    MODEL_PROCESS = subprocess.Popen([LLAMAFILE_PATH, "-m", "/app/mistral-7b-instruct-v0.2.Q4_0.gguf", "--server"], 
+    log_stage("Starting Llama-3 model server")
+    MODEL_PROCESS = subprocess.Popen([LLAMAFILE_PATH, "-m", MODEL_PATH, "--server"], 
                                      stdout=subprocess.PIPE, 
                                      stderr=subprocess.PIPE, 
                                      universal_newlines=True)
@@ -37,7 +32,7 @@ def start_model_server():
         line = MODEL_PROCESS.stdout.readline()
         if "HTTP server listening" in line:
             MODEL_STATUS = "READY"
-            log_stage("Mistral model server is ready")
+            log_stage("Llama-3 model server is ready")
             break
         elif MODEL_PROCESS.poll() is not None:
             raise Exception("Model server failed to start")
@@ -100,7 +95,6 @@ def chat():
 if __name__ == '__main__':
     try:
         log_stage("Server startup")
-        download_model()
         start_model_server()
         log_stage("API server starting")
         app.run(host='0.0.0.0', port=int(os.getenv('PORT', 8080)))
