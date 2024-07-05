@@ -24,7 +24,11 @@ COPY requirements.txt /app/requirements.txt
 RUN pip3 install --no-cache-dir -r /app/requirements.txt
 
 # Copy the application files
-COPY api_server.py download_model.py run_model.py .env start.sh /app/
+COPY api_server.py download_model.py run_model.py start.sh /app/
+
+# Create .env file
+RUN echo "MODEL_PATH=/app/models/llama-2-7b-chat.gguf" > /app/.env && \
+    echo "PORT=8080" >> /app/.env
 
 # Set the working directory
 WORKDIR /app
