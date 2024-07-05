@@ -10,13 +10,10 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Download pre-built llamafile with model included
-RUN curl -L -o llama2-7b.llamafile https://huggingface.co/jartine/llama-2-7B-chat-llamafile/resolve/main/llama2-7b-chat.Q4_K_M.llamafile && \
-    chmod +x llama2-7b.llamafile
-
 COPY requirements.txt .
 RUN pip3 install --no-cache-dir -r requirements.txt
 
+COPY download_model.py .
 COPY api_server.py .
 
 EXPOSE 8080
