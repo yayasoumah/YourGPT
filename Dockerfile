@@ -16,11 +16,8 @@ COPY requirements.txt .
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the application files
-COPY download_model.py server.py ./
-
-# Create a directory for logs
-RUN mkdir /app/logs
+# Copy the application file
+COPY server.py .
 
 # Expose the port the app runs on
 EXPOSE 8000
