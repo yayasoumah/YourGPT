@@ -14,32 +14,50 @@ done
 
 echo "$(date): Ollama server is running."
 
-# Function to pull the model with retries
+# Function to pull the model with retries and timeout
 pull_model() {
     local model=$1
-    local max_attempts=5
+    local max_attempts=3
+    local timeout=1800  # 30 minutes timeout
     local attempt=1
+    
     while [ $attempt -le $max_attempts ]; do
         echo "$(date): Attempt $attempt to pull $model model..."
-        if ollama pull $model; then
+        
+        timeout $timeout ollama pull $model
+        
+        if [ $? -eq 0 ]; then
             echo "$(date): Successfully pulled $model model"
             return 0
+        elif [ $? -eq 124 ]; then
+            echo "$(date): Timeout occurred while pulling the model"
+        else
+            echo "$(date): Failed to pull model"
         fi
+        
         attempt=$((attempt+1))
-        echo "$(date): Failed to pull model. Retrying in 10 seconds..."
-        sleep 10
+        echo "$(date): Retrying in 60 seconds..."
+        sleep 60
     done
+    
     echo "$(date): Failed to pull model after $max_attempts attempts"
     return 1
 }
 
-# Pull the llama3 model
-pull_model llama3
+# Try to pull a smaller model first
+if pull_model tinyllama; then
+    MODEL="tinyllama"
+elif pull_model llama2; then
+    MODEL="llama2"
+else
+    echo "$(date): Failed to pull any model. Exiting."
+    exit 1
+fi
 
 # Create a custom model for YourGPT
 echo "$(date): Creating custom YourGPT model..."
 cat <<EOF > Modelfile
-FROM llama2
+FROM $MODEL
 SYSTEM You are YourGPT, a helpful AI assistant created to provide personalized and private AI interactions.
 EOF
 
@@ -48,4 +66,4 @@ ollama create yourgpt -f Modelfile
 echo "$(date): Ollama setup complete. Server is ready to handle requests."
 
 # Start the Flask API server
-python api_server.py
+python3 api_server.py
