@@ -4,9 +4,9 @@ import logging
 
 logging.basicConfig(level=logging.INFO)
 
-def download_model():
+def download_model(filename):
     model_url = "https://huggingface.co/jartine/llama-2-7B-chat-llamafile/resolve/main/llama2-7b-chat.Q4_K_M.llamafile"
-    model_path = "./llama2-7b.llamafile"
+    model_path = os.path.join(os.getcwd(), filename)
 
     if os.path.exists(model_path):
         logging.info(f"Model already exists at {model_path}")
@@ -26,4 +26,4 @@ def download_model():
     logging.info(f"Made {model_path} executable")
 
 if __name__ == "__main__":
-    download_model()
+    download_model('llama2-7b.llamafile')
