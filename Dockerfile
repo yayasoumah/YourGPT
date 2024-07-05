@@ -21,8 +21,9 @@ RUN curl -fsSL https://ollama.ai/install.sh | sh
 # Copy requirements file
 COPY requirements.txt /requirements.txt
 
-# Install Python dependencies
-RUN pip3 install --no-cache-dir -r /requirements.txt
+# Upgrade pip and install Python dependencies
+RUN python3 -m pip install --upgrade pip && \
+    python3 -m pip install --no-cache-dir -r /requirements.txt
 
 # Copy the startup script and API server
 COPY start.sh /start.sh
