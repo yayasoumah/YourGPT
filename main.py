@@ -1,9 +1,9 @@
 # main.py
 import asyncio
-import subprocess
+import httpx
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-import httpx
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 app = FastAPI(title="YourGPT", description="Your Personal AI, One Click Away")
 
@@ -13,7 +13,7 @@ class GenerateRequest(BaseModel):
 class GenerateResponse(BaseModel):
     response: str
 
-async def wait_for_ollama(timeout=60):
+async def wait_for_ollama(timeout=120):
     start_time = asyncio.get_event_loop().time()
     while True:
         try:
@@ -27,19 +27,23 @@ async def wait_for_ollama(timeout=60):
                 raise Exception("Timeout waiting for Ollama to start")
             await asyncio.sleep(1)
 
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
 async def download_model():
     try:
-        await wait_for_ollama()
+        await wait_for_ollama(timeout=120)
         process = await asyncio.create_subprocess_exec(
-            "ollama", "pull", "gemma2:9b",
+            "ollama", "pull", "llama3",
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE
         )
-        stdout, stderr = await process.communicate()
+        stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=1800)  # 30 minutes timeout
         if process.returncode != 0:
             print(f"Error downloading model: {stderr.decode()}")
             raise Exception("Failed to download model")
-        print("Gemma 2 9B model downloaded successfully")
+        print("llama3 model downloaded successfully")
+    except asyncio.TimeoutError:
+        print("Model download timed out")
+        raise Exception("Model download timed out")
     except Exception as e:
         print(f"Exception occurred while downloading model: {str(e)}")
         raise
@@ -54,7 +58,7 @@ async def generate(request: GenerateRequest):
         response = await client.post(
             "http://localhost:11434/api/generate",
             json={
-                "model": "gemma2:9b",
+                "model": "llama3",
                 "prompt": request.prompt
             }
         )

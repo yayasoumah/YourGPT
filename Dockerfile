@@ -17,4 +17,4 @@ RUN pip install -r requirements.txt
 COPY . .
 
 # Start Ollama service and run the FastAPI app
-CMD ["sh", "-c", "ollama serve & uvicorn main:app --host 0.0.0.0 --port 8000"]
+CMD ["sh", "-c", "ollama serve & uvicorn main:app --host 0.0.0.0 --port 8000"
