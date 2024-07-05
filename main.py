@@ -2,7 +2,7 @@ import asyncio
 import httpx
 import logging
 import psutil
-from fastapi import FastAPI, HTTPException, Request, BackgroundTasks
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
@@ -19,7 +19,7 @@ class GenerateResponse(BaseModel):
     response: str
 
 # Global variable to track if the model is ready
-model_ready = asyncio.Event()
+model_ready = False
 
 def check_memory():
     memory = psutil.virtual_memory()
@@ -28,7 +28,8 @@ def check_memory():
         logger.warning("Low memory condition detected")
 
 async def ensure_ollama_ready():
-    while True:
+    max_retries = 30
+    for i in range(max_retries):
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.get("http://localhost:11434/api/tags")
@@ -36,10 +37,13 @@ async def ensure_ollama_ready():
                     logger.info("Ollama is ready")
                     return
         except httpx.RequestError as e:
-            logger.warning(f"Ollama not ready yet: {str(e)}")
-        await asyncio.sleep(5)  # Wait for 5 seconds before retrying
+            logger.warning(f"Ollama not ready yet (attempt {i+1}/{max_retries}): {str(e)}")
+        await asyncio.sleep(10)  # Wait for 10 seconds before retrying
+    logger.error("Ollama failed to start after maximum retries")
+    raise Exception("Ollama failed to start")
 
 async def load_model():
+    global model_ready
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(
@@ -47,29 +51,30 @@ async def load_model():
                 json={
                     "model": "llama3",
                     "prompt": "Warm-up request"
-                }
+                },
+                timeout=600.0  # 10 minutes timeout
             )
         logger.info("Model loaded successfully")
-        model_ready.set()  # Signal that the model is ready
+        model_ready = True
     except Exception as e:
         logger.error(f"Error loading model: {str(e)}")
-        # Don't raise here, let the application continue running
-
-async def startup_sequence():
-    check_memory()
-    await ensure_ollama_ready()
-    await load_model()
+        raise
 
 @app.on_event("startup")
 async def startup_event():
-    background_tasks = BackgroundTasks()
-    background_tasks.add_task(startup_sequence)
-    # Don't await here, let it run in the background
+    logger.info("Starting up YourGPT")
+    try:
+        check_memory()
+        await ensure_ollama_ready()
+        await load_model()
+        logger.info("YourGPT startup complete")
+    except Exception as e:
+        logger.error(f"Startup failed: {str(e)}")
+        # We'll let the application start, but it won't be able to generate responses
 
 @app.post("/generate", response_model=GenerateResponse)
 async def generate(request: GenerateRequest):
-    check_memory()
-    if not model_ready.is_set():
+    if not model_ready:
         raise HTTPException(status_code=503, detail="Model is not ready yet. Please try again later.")
     try:
         async with httpx.AsyncClient() as client:
@@ -78,7 +83,8 @@ async def generate(request: GenerateRequest):
                 json={
                     "model": "llama3",
                     "prompt": request.prompt
-                }
+                },
+                timeout=120.0  # 2 minutes timeout for generation
             )
             response.raise_for_status()
             data = response.json()
@@ -93,7 +99,7 @@ async def generate(request: GenerateRequest):
 @app.get("/health")
 async def health_check():
     check_memory()
-    if not model_ready.is_set():
+    if not model_ready:
         return {"status": "starting", "message": "Model is still loading"}
     try:
         async with httpx.AsyncClient() as client:

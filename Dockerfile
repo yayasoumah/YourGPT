@@ -26,7 +26,28 @@ RUN pip install --no-cache-dir -r requirements.txt
 EXPOSE 8000
 
 # Create a startup script
-RUN echo '#!/bin/bash\nollama serve &\nuvicorn main:app --host 0.0.0.0 --port 8000' > /app/start.sh \
+RUN echo '#!/bin/bash\n\
+ollama serve &\n\
+OLLAMA_PID=$!\n\
+\n\
+# Wait for Ollama to start\n\
+echo "Waiting for Ollama to start..."\n\
+for i in {1..30}; do\n\
+    if curl -s http://localhost:11434/api/tags > /dev/null; then\n\
+        echo "Ollama is ready"\n\
+        break\n\
+    fi\n\
+    if [ $i -eq 30 ]; then\n\
+        echo "Ollama failed to start"\n\
+        exit 1\n\
+    fi\n\
+    sleep 10\n\
+done\n\
+\n\
+# Start the FastAPI application\n\
+echo "Starting FastAPI application..."\n\
+exec uvicorn main:app --host 0.0.0.0 --port 8000\n\
+' > /app/start.sh \
     && chmod +x /app/start.sh
 
 # Run the startup script when the container launches
