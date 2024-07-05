@@ -11,24 +11,24 @@ ENV OLLAMA_MODELS /root/.ollama/models
 # Install dependencies
 RUN apt-get update && apt-get install -y \
     curl \
-    supervisor \
+    python3 \
+    python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Ollama
 RUN curl -fsSL https://ollama.ai/install.sh | sh
 
-# Create directory for supervisor configs
-RUN mkdir -p /etc/supervisor/conf.d
+# Install Python dependencies
+COPY requirements.txt /requirements.txt
+RUN pip3 install -r /requirements.txt
 
-# Copy supervisor configuration file
-COPY supervisord.conf /etc/supervisor/supervisord.conf
-
-# Copy the startup script
+# Copy the startup script and API server
 COPY start.sh /start.sh
+COPY api_server.py /api_server.py
 RUN chmod +x /start.sh
 
-# Expose Ollama port
-EXPOSE 11434
+# Expose Ollama port and API port
+EXPOSE 11434 8080
 
-# Start supervisord
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf"]
+# Start the Ollama server and API server
+CMD ["/start.sh"]
