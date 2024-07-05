@@ -1,21 +1,18 @@
-FROM ubuntu:20.04
-
-ENV DEBIAN_FRONTEND=noninteractive
+FROM python:3.8-slim-buster
 
 RUN apt-get update && apt-get install -y \
-    curl \
-    python3 \
-    python3-pip \
+    build-essential \
+    cmake \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
 COPY requirements.txt .
-RUN pip3 install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
-COPY download_llamafile.py .
+COPY download_model.py .
 COPY api_server.py .
 
 EXPOSE 8080
 
-CMD ["python3", "api_server.py"]
+CMD ["python", "api_server.py"]
