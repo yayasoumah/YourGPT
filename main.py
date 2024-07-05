@@ -1,6 +1,7 @@
 import asyncio
 import httpx
 import logging
+import psutil
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -17,8 +18,15 @@ class GenerateRequest(BaseModel):
 class GenerateResponse(BaseModel):
     response: str
 
+def check_memory():
+    memory = psutil.virtual_memory()
+    logger.info(f"Available memory: {memory.available / (1024 * 1024 * 1024):.2f} GB")
+    if memory.available < 1 * 1024 * 1024 * 1024:  # Less than 1GB available
+        logger.warning("Low memory condition detected")
+
 async def ensure_ollama_ready():
-    while True:
+    max_retries = 10
+    for i in range(max_retries):
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.get("http://localhost:11434/api/tags")
@@ -26,8 +34,11 @@ async def ensure_ollama_ready():
                     logger.info("Ollama is ready")
                     return
         except httpx.RequestError as e:
-            logger.warning(f"Ollama not ready yet: {str(e)}")
-            await asyncio.sleep(1)
+            logger.warning(f"Ollama not ready yet (attempt {i+1}/{max_retries}): {str(e)}")
+            if i == max_retries - 1:
+                logger.error("Failed to connect to Ollama after maximum retries")
+                raise
+            await asyncio.sleep(2 ** i)  # Exponential backoff
 
 async def warm_up_model():
     try:
@@ -46,11 +57,13 @@ async def warm_up_model():
 
 @app.on_event("startup")
 async def startup_event():
+    check_memory()
     await ensure_ollama_ready()
     await warm_up_model()
 
 @app.post("/generate", response_model=GenerateResponse)
 async def generate(request: GenerateRequest):
+    check_memory()
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(
@@ -69,6 +82,20 @@ async def generate(request: GenerateRequest):
     except Exception as e:
         logger.error(f"An unexpected error occurred: {str(e)}")
         raise HTTPException(status_code=500, detail="An unexpected error occurred")
+
+@app.get("/health")
+async def health_check():
+    check_memory()
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get("http://localhost:11434/api/tags")
+            if response.status_code == 200:
+                return {"status": "healthy"}
+            else:
+                raise HTTPException(status_code=500, detail="Ollama is not responding correctly")
+    except Exception as e:
+        logger.error(f"Health check failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Health check failed")
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
