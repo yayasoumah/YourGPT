@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Set environment variables
+export $(cat .env | xargs)
+
 # Download the model
 python3 download_model.py
 
@@ -7,4 +10,4 @@ python3 download_model.py
 python3 run_model.py &
 
 # Start the API server
-gunicorn --bind 0.0.0.0:8080 api_server:app
+gunicorn --bind 0.0.0.0:$PORT api_server:app
