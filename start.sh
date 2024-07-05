@@ -25,14 +25,15 @@ pull_model() {
         echo "$(date): Attempt $attempt to pull $model model..."
         
         timeout $timeout ollama pull $model
+        pull_exit_code=$?
         
-        if [ $? -eq 0 ]; then
+        if [ $pull_exit_code -eq 0 ]; then
             echo "$(date): Successfully pulled $model model"
             return 0
-        elif [ $? -eq 124 ]; then
+        elif [ $pull_exit_code -eq 124 ]; then
             echo "$(date): Timeout occurred while pulling the model"
         else
-            echo "$(date): Failed to pull model"
+            echo "$(date): Failed to pull model (exit code: $pull_exit_code)"
         fi
         
         attempt=$((attempt+1))
