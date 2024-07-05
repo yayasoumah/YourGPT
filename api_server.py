@@ -11,8 +11,7 @@ load_dotenv()
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
 
-LLAMAFILE_PATH = os.getenv('LLAMAFILE_PATH', './llamafile')
-MODEL_PATH = os.getenv('MODEL_PATH', './Llama-3-Instruct-8B-SPPO-Iter3-Q4_K_M.gguf')
+LLAMAFILE_PATH = os.getenv('LLAMAFILE_PATH', './llama2-7b.llamafile')
 MODEL_STATUS = "NOT_STARTED"
 MODEL_PROCESS = None
 
@@ -22,8 +21,8 @@ def log_stage(stage):
 def start_model_server():
     global MODEL_STATUS, MODEL_PROCESS
     MODEL_STATUS = "LOADING"
-    log_stage("Starting Llama-3 model server")
-    MODEL_PROCESS = subprocess.Popen([LLAMAFILE_PATH, "-m", MODEL_PATH, "--server"], 
+    log_stage("Starting Llama-2 model server")
+    MODEL_PROCESS = subprocess.Popen([LLAMAFILE_PATH, "--server"], 
                                      stdout=subprocess.PIPE, 
                                      stderr=subprocess.PIPE, 
                                      universal_newlines=True)
@@ -32,7 +31,7 @@ def start_model_server():
         line = MODEL_PROCESS.stdout.readline()
         if "HTTP server listening" in line:
             MODEL_STATUS = "READY"
-            log_stage("Llama-3 model server is ready")
+            log_stage("Llama-2 model server is ready")
             break
         elif MODEL_PROCESS.poll() is not None:
             raise Exception("Model server failed to start")

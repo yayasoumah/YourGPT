@@ -4,20 +4,15 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y \
     curl \
-    wget \
     python3 \
     python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Download Llamafile executable
-RUN curl -L -o llamafile https://github.com/Mozilla-Ocho/llamafile/releases/download/0.6/llamafile-0.6 && \
-    chmod +x llamafile
-
-# Download the model file
-RUN wget -O Llama-3-Instruct-8B-SPPO-Iter3-Q4_K_M.gguf \
-    https://huggingface.co/NumerDox/Llama-3-Instruct-8B-SPPO-Iter3/resolve/main/Llama-3-Instruct-8B-SPPO-Iter3-Q4_K_M.gguf
+# Download pre-built llamafile with model included
+RUN curl -L -o llama2-7b.llamafile https://huggingface.co/jartine/llama-2-7B-chat-llamafile/resolve/main/llama2-7b-chat.Q4_K_M.llamafile && \
+    chmod +x llama2-7b.llamafile
 
 COPY requirements.txt .
 RUN pip3 install --no-cache-dir -r requirements.txt
