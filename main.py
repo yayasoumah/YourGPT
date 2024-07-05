@@ -1,5 +1,6 @@
 # main.py
 import asyncio
+import subprocess
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import httpx
@@ -12,8 +13,23 @@ class GenerateRequest(BaseModel):
 class GenerateResponse(BaseModel):
     response: str
 
+async def wait_for_ollama(timeout=60):
+    start_time = asyncio.get_event_loop().time()
+    while True:
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get("http://localhost:11434/api/tags")
+                if response.status_code == 200:
+                    print("Ollama is ready")
+                    return
+        except httpx.RequestError:
+            if asyncio.get_event_loop().time() - start_time > timeout:
+                raise Exception("Timeout waiting for Ollama to start")
+            await asyncio.sleep(1)
+
 async def download_model():
     try:
+        await wait_for_ollama()
         process = await asyncio.create_subprocess_exec(
             "ollama", "pull", "gemma2:9b",
             stdout=asyncio.subprocess.PIPE,
