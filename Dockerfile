@@ -13,7 +13,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip3 install --no-cache-dir -r requirements.txt
 
-COPY download_model.py .
+COPY download_llamafile.py .
 COPY api_server.py .
 
 EXPOSE 8080
