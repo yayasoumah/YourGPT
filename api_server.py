@@ -1,29 +1,46 @@
 import os
 import logging
 from flask import Flask, request, jsonify
-from llama_cpp import Llama
-from download_model import download_model, MODEL_PATH
+from dotenv import load_dotenv
+import subprocess
+
+load_dotenv()
 
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
 
+MODEL_PATH = os.getenv('MODEL_PATH', '/app/models/llama-2-7b-chat.gguf')
+LLAMA_CPP_PATH = "/llama.cpp"
 MODEL_STATUS = "NOT_STARTED"
-llm = None
+MODEL_PROCESS = None
 
-def log_stage(stage):
-    logging.info(f"DEPLOYMENT STAGE: {stage}")
-
-def load_model():
-    global MODEL_STATUS, llm
-    MODEL_STATUS = "LOADING"
-    log_stage(f"Loading Llama model from {MODEL_PATH}")
+def start_model_server():
+    global MODEL_STATUS, MODEL_PROCESS
+    MODEL_STATUS = "STARTING"
+    logging.info("Starting Llama-2-7B-Chat model server...")
     
-    if not os.path.exists(MODEL_PATH):
-        raise FileNotFoundError(f"Model not found at {MODEL_PATH}")
+    command = [
+        f"{LLAMA_CPP_PATH}/main",
+        "-m", MODEL_PATH,
+        "--server",
+        "--host", "0.0.0.0",
+        "--port", "8080"
+    ]
     
-    llm = Llama(model_path=MODEL_PATH)
-    MODEL_STATUS = "READY"
-    log_stage("Llama model is ready")
+    MODEL_PROCESS = subprocess.Popen(command, 
+                                     stdout=subprocess.PIPE, 
+                                     stderr=subprocess.PIPE, 
+                                     universal_newlines=True)
+    
+    while True:
+        line = MODEL_PROCESS.stdout.readline()
+        logging.info(line.strip())
+        if "HTTP server listening" in line:
+            MODEL_STATUS = "READY"
+            logging.info("Llama-2-7B-Chat model server is ready.")
+            break
+        elif MODEL_PROCESS.poll() is not None:
+            raise Exception("Model server failed to start")
 
 @app.route('/status', methods=['GET'])
 def get_status():
@@ -38,26 +55,19 @@ def generate():
     prompt = data.get('prompt', '')
     
     try:
-        output = llm(prompt, max_tokens=100)
-        return jsonify({"response": output['choices'][0]['text'].strip()})
+        response = subprocess.run([
+            "curl", "-X", "POST", "http://localhost:8080/completion",
+            "-H", "Content-Type: application/json",
+            "-d", f'{{"prompt": "{prompt}", "n_predict": 128}}'
+        ], capture_output=True, text=True)
+        return jsonify({"response": response.stdout})
     except Exception as e:
         logging.error(f"Error in generate: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
     try:
-        log_stage("Server startup")
-        log_stage(f"Current working directory: {os.getcwd()}")
-        log_stage(f"Contents of current directory: {os.listdir('.')}")
-        
-        download_model()
-        load_model()
-        
-        log_stage("API server starting")
-        app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 8080)))
+        start_model_server()
+        app.run(host='0.0.0.0', port=int(os.getenv('PORT', 8080)))
     except Exception as e:
         logging.error(f"Failed to start the server: {str(e)}")
-        raise
-
-
-    

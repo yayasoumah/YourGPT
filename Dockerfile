@@ -1,18 +1,39 @@
-FROM python:3.8-slim-buster
+# Use Ubuntu as the base image
+FROM ubuntu:20.04
 
+# Avoid prompts from apt
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install dependencies
 RUN apt-get update && apt-get install -y \
-    build-essential \
+    curl \
+    python3 \
+    python3-pip \
+    git \
     cmake \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
+# Clone and build llama.cpp
+RUN git clone https://github.com/ggerganov/llama.cpp.git && \
+    cd llama.cpp && \
+    make
+
+# Copy requirements file and install Python dependencies
+COPY requirements.txt /app/requirements.txt
+RUN pip3 install --no-cache-dir -r /app/requirements.txt
+
+# Copy the application files
+COPY api_server.py download_model.py run_model.py .env start.sh /app/
+
+# Set the working directory
 WORKDIR /app
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Make the start script executable
+RUN chmod +x start.sh
 
-COPY download_model.py .
-COPY api_server.py .
-
+# Expose API port
 EXPOSE 8080
 
-CMD ["python", "api_server.py"]
+# Start the application
+CMD ["./start.sh"]
