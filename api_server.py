@@ -5,34 +5,35 @@ import time
 import logging
 from flask import Flask, request, jsonify
 from dotenv import load_dotenv
-from download_model import download_model
+from download_model import download_llamafile_and_model
 
 load_dotenv()
 
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
 
-MODEL_FILENAME = 'llama2-7b.llamafile'
-LLAMAFILE_PATH = os.path.join(os.getcwd(), MODEL_FILENAME)
+LLAMAFILE_PATH = None
+MODEL_PATH = None
 MODEL_STATUS = "NOT_STARTED"
 MODEL_PROCESS = None
 
 def log_stage(stage):
     logging.info(f"DEPLOYMENT STAGE: {stage}")
 
-def ensure_model_downloaded():
-    log_stage("Ensuring model is downloaded")
-    download_model(MODEL_FILENAME)
+def ensure_files_downloaded():
+    global LLAMAFILE_PATH, MODEL_PATH
+    log_stage("Ensuring llamafile and model are downloaded")
+    LLAMAFILE_PATH, MODEL_PATH = download_llamafile_and_model()
 
 def start_model_server():
     global MODEL_STATUS, MODEL_PROCESS
     MODEL_STATUS = "LOADING"
-    log_stage(f"Starting Llama-2 model server using {LLAMAFILE_PATH}")
+    log_stage(f"Starting Llama-2 model server using {LLAMAFILE_PATH} with model {MODEL_PATH}")
     
-    if not os.path.exists(LLAMAFILE_PATH):
-        raise FileNotFoundError(f"Llamafile not found at {LLAMAFILE_PATH}")
+    if not os.path.exists(LLAMAFILE_PATH) or not os.path.exists(MODEL_PATH):
+        raise FileNotFoundError(f"Llamafile or model not found")
     
-    MODEL_PROCESS = subprocess.Popen([LLAMAFILE_PATH, "--server"], 
+    MODEL_PROCESS = subprocess.Popen([LLAMAFILE_PATH, "-m", MODEL_PATH, "--server"], 
                                      stdout=subprocess.PIPE, 
                                      stderr=subprocess.PIPE, 
                                      universal_newlines=True)
@@ -114,7 +115,7 @@ if __name__ == '__main__':
         log_stage(f"Current working directory: {os.getcwd()}")
         log_stage(f"Contents of current directory: {os.listdir('.')}")
         
-        ensure_model_downloaded()
+        ensure_files_downloaded()
         start_model_server()
         
         log_stage("API server starting")

@@ -4,26 +4,35 @@ import logging
 
 logging.basicConfig(level=logging.INFO)
 
-def download_model(filename):
-    model_url = "https://huggingface.co/jartine/llama-2-7B-chat-llamafile/resolve/main/llama2-7b-chat.Q4_K_M.llamafile"
-    model_path = os.path.join(os.getcwd(), filename)
+def download_file(url, filename):
+    filepath = os.path.join(os.getcwd(), filename)
+    if os.path.exists(filepath):
+        logging.info(f"{filename} already exists at {filepath}")
+        return filepath
 
-    if os.path.exists(model_path):
-        logging.info(f"Model already exists at {model_path}")
-        return
-
-    logging.info(f"Downloading model from {model_url}")
-    result = subprocess.run(["curl", "-L", "-o", model_path, model_url], capture_output=True, text=True)
+    logging.info(f"Downloading {filename} from {url}")
+    result = subprocess.run(["curl", "-L", "-o", filepath, url], capture_output=True, text=True)
     
     if result.returncode != 0:
-        logging.error(f"Failed to download model: {result.stderr}")
-        raise Exception("Model download failed")
+        logging.error(f"Failed to download {filename}: {result.stderr}")
+        raise Exception(f"{filename} download failed")
 
-    logging.info(f"Model downloaded successfully to {model_path}")
+    logging.info(f"{filename} downloaded successfully to {filepath}")
     
-    # Make the model executable
-    os.chmod(model_path, 0o755)
-    logging.info(f"Made {model_path} executable")
+    # Make the file executable
+    os.chmod(filepath, 0o755)
+    logging.info(f"Made {filepath} executable")
+    
+    return filepath
+
+def download_llamafile_and_model():
+    llamafile_url = "https://github.com/Mozilla-Ocho/llamafile/releases/download/0.1/llamafile-0.1"
+    llamafile_path = download_file(llamafile_url, "llamafile")
+    
+    model_url = "https://huggingface.co/jartine/llama-2-7B-chat-llamafile/resolve/main/llama-2-7b-chat.Q4_K_M.gguf"
+    model_path = download_file(model_url, "llama-2-7b-chat.Q4_K_M.gguf")
+    
+    return llamafile_path, model_path
 
 if __name__ == "__main__":
-    download_model('llama2-7b.llamafile')
+    download_llamafile_and_model()
