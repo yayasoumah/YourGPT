@@ -11,20 +11,24 @@ ENV OLLAMA_MODELS /root/.ollama/models
 # Install dependencies
 RUN apt-get update && apt-get install -y \
     curl \
+    supervisor \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Ollama
 RUN curl -fsSL https://ollama.ai/install.sh | sh
 
+# Create directory for supervisor configs
+RUN mkdir -p /etc/supervisor/conf.d
+
+# Copy supervisor configuration file
+COPY supervisord.conf /etc/supervisor/supervisord.conf
+
+# Copy the startup script
+COPY start.sh /start.sh
+RUN chmod +x /start.sh
+
 # Expose Ollama port
 EXPOSE 11434
 
-# Create a startup script
-RUN echo '#!/bin/bash\n\
-echo "Starting Ollama server..."\n\
-ollama serve\n\
-' > /start.sh \
-&& chmod +x /start.sh
-
-# Run the startup script when the container launches
-CMD ["/start.sh"]
+# Start supervisord
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf"]
